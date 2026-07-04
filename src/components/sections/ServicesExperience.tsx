@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef } from "react";
-import { motion, useScroll, useTransform, MotionValue } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { motion, useScroll, useTransform, AnimatePresence, MotionValue } from "framer-motion";
 import {
   TbTool,
   TbDroplet,
@@ -59,21 +59,16 @@ function ServicePanel({
   const Icon = icons[index];
   const start = index / N;
   const end = (index + 1) / N;
-  const fadeIn = start + 0.02;
-  const fadeOut = end - 0.02;
 
-  const opacity = useTransform(
-    scrollYProgress,
-    [start, fadeIn, fadeOut, end],
-    [index === 0 ? 1 : 0, 1, 1, index === N - 1 ? 1 : 0]
-  );
-  const contentY = useTransform(scrollYProgress, [start, fadeIn], [40, 0]);
   const imageScale = useTransform(scrollYProgress, [start, end], [1.02, 1.14]);
   const imagePan = useTransform(scrollYProgress, [start, end], ["0%", "-4%"]);
 
   return (
     <motion.div
-      style={{ opacity, zIndex: index }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       className="absolute inset-0 flex items-center"
     >
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-10 px-6 sm:px-8 lg:grid-cols-2 lg:gap-16">
@@ -93,7 +88,12 @@ function ServicePanel({
           </div>
         </motion.div>
 
-        <motion.div style={{ y: contentY }} className="order-2 lg:order-none">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          className="order-2 lg:order-none"
+        >
           <span className="font-mono text-xs uppercase tracking-[0.3em] text-primary">
             Service {service.index} / {String(N).padStart(2, "0")}
           </span>
@@ -117,12 +117,20 @@ function ServicePanel({
 
 export default function ServicesExperience() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end end"],
   });
 
   const progressWidth = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
+
+  useEffect(() => {
+    return scrollYProgress.on("change", (p) => {
+      const idx = Math.min(N - 1, Math.max(0, Math.floor(p * N)));
+      setActiveIndex((prev) => (prev !== idx ? idx : prev));
+    });
+  }, [scrollYProgress]);
 
   return (
     <section id="services" className="relative bg-bg">
@@ -138,9 +146,9 @@ export default function ServicesExperience() {
 
       <div ref={containerRef} style={{ height: `${N * 100}vh` }} className="relative">
         <div className="sticky top-0 h-[100svh] overflow-hidden">
-          {services.map((service, i) => (
-            <ServicePanel key={service.id} index={i} scrollYProgress={scrollYProgress} />
-          ))}
+          <AnimatePresence initial={false} mode="sync">
+            <ServicePanel key={activeIndex} index={activeIndex} scrollYProgress={scrollYProgress} />
+          </AnimatePresence>
 
           <div className="absolute inset-x-0 bottom-10 z-20 mx-auto flex w-full max-w-7xl justify-center px-6 sm:px-8">
             <div className="h-1 w-full max-w-xs overflow-hidden rounded-full bg-border">
